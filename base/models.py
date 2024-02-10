@@ -13,8 +13,8 @@ class BaseModel(models.Model):
 
 
 class GenericBaseModel(BaseModel):
-    name = models.CharField(max_length=255)
-    description = models.CharField(max_length=255)
+    name = models.TextField()
+    description = models.TextField()
 
     class Meta:
         abstract: True

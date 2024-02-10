@@ -8,6 +8,7 @@ class LogType(GenericBaseModel):
 
 
 class Log(BaseModel):
+    user_id = models.UUIDField()
     log_type = models.ForeignKey(LogType, on_delete=models.CASCADE)
     request_data = models.TextField()
     response_data = models.TextField(null=True, )
@@ -15,5 +16,5 @@ class Log(BaseModel):
     is_successful = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.log_type
+        return self.log_type.name
 

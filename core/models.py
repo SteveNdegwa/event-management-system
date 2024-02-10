@@ -51,14 +51,6 @@ class Ticket(BaseModel):
         return self.uuid
 
 
-class Notification(GenericBaseModel):
-    user_id = models.UUIDField()
-    notification_state = models.ForeignKey(State, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return self.name
-
-
 
 
 
