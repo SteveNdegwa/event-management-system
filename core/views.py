@@ -97,13 +97,8 @@ def create_event(request):
         response = {"message": "Event created successfully", "code": "201"}
         transaction_log.complete_transaction(response, True)
 
-        try:
-            create_notification(user_id, "Event created",
-                                f"You created an event: {data.get('name')} - {data.get('description')}")
-            print("notification created")
-        except:
-            print("error creating notification")
-            pass
+        create_notification(user_id, "Event created",
+                            f"You created an event: {data.get('name')} - {data.get('description')}")
 
         return JsonResponse(response, status=201)
     except:
@@ -149,16 +144,53 @@ def update_event(request):
         response = {"message": "Event updated successfully", "code": "200"}
         transaction_log.complete_transaction(response, True)
 
-        try:
-            create_notification(user_id, "Event Updated",
-                                f"Event: '{data.get('name')}' - '{data.get('description')}' updated successfully")
-            print("notification created")
-        except:
-            print("error creating notification")
-            pass
+        create_notification(user_id, "Event Updated",
+                            f"Event: '{data.get('name')}' - '{data.get('description')}' updated successfully")
 
         return JsonResponse(response, status=200)
 
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)
+
+
+def delete_event(request):
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        event_id = data.get('event_id')
+
+        # start transaction
+        transaction_log.start_transaction(user_id, 'delete_event', data)
+
+        # get event to be deleted
+        event = EventService().get(event_id=event_id)
+
+        # check if user is event creator
+        creator_id = event.creator_id
+        if str(user_id) != str(creator_id):
+            response = {"message": "You are not authorized to perform this transaction", "code": "403"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=403)
+
+        # get deleted state
+        deleted_state = StateService().get(name="deleted")
+
+        # delete event
+        EventService().update(event_id, event_state=deleted_state)
+
+        # complete transaction
+        response = {"message": "Event deleted successfully", "code": "200"}
+        transaction_log.complete_transaction(response, True)
+
+        # create notification
+        create_notification(user_id, name="Event deleted",
+                            description=f"Event: {event.name} - {event.description} deleted successfully")
+
+        return JsonResponse(response, status=200)
 
     except:
         response = {"message": "Internal server error", "code": "500"}
