@@ -31,10 +31,7 @@ class Role(GenericBaseModel):
 
 
 class Attendee(BaseModel):
-    first_name = models.CharField(max_length=255)
-    last_name = models.CharField(max_length=255)
-    email = models.EmailField()
-    gender = models.CharField(max_length=50)
+    user_id = models.UUIDField()
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
     attendee_state = models.ForeignKey(State, on_delete=models.CASCADE)

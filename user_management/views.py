@@ -3,6 +3,7 @@ from django.http import JsonResponse
 import requests
 from django.views.decorators.csrf import csrf_exempt
 from .backend.decorators import verify_token
+from .backend.ServiceLayer import CachedUserService
 
 import os
 from dotenv import load_dotenv
@@ -17,6 +18,11 @@ def login(request):
     data = json.loads(request.body)
     url = f"{USER_MANAGEMENT_API}/login/"
     response = requests.post(url, json=data)
+    # cached_user = CachedUserService.get(use)
+    # CachedUserService().create(
+    #
+    # )
+    print(response.json()['user'])
     return JsonResponse(response.json())
 
 
@@ -41,3 +47,4 @@ def verify_user(request):
     url = f"{USER_MANAGEMENT_API}/"
     response = requests.post(url)
     return JsonResponse(response.json())
+
