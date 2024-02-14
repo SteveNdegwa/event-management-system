@@ -1,5 +1,5 @@
 from notifications.models import Notification
-from service_layer.ServiceLayer import ServiceLayer
+from services.ServiceLayer import ServiceLayer
 
 
 class NotificationService(ServiceLayer):

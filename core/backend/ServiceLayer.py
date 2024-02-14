@@ -1,5 +1,5 @@
 from core.models import EventType, Event, Role, Attendee, Ticket
-from service_layer.ServiceLayer import ServiceLayer
+from services.ServiceLayer import ServiceLayer
 
 
 class EventTypeService(ServiceLayer):

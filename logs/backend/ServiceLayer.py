@@ -1,5 +1,5 @@
 from logs.models import Log, LogType
-from service_layer.ServiceLayer import ServiceLayer
+from services.ServiceLayer import ServiceLayer
 
 
 class LogTypeService(ServiceLayer):

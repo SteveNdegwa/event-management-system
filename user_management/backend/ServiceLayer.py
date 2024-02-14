@@ -1,4 +1,4 @@
-from service_layer.ServiceLayer import ServiceLayer
+from services.ServiceLayer import ServiceLayer
 from user_management.models import CachedUser
 
 
