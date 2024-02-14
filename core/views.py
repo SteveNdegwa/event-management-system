@@ -1,6 +1,7 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from base.backend.ServiceLayer import StateService
+from invites.views import invite_to_event
 from .backend.ServiceLayer import EventTypeService, EventService
 from .backend.request_processor import get_request_data
 from logs.views import TransactionLog
@@ -196,3 +197,7 @@ def delete_event(request):
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
         return JsonResponse(response, status=500)
+
+
+def invite(request):
+    return invite_to_event(request)
