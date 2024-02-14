@@ -8,5 +8,5 @@ from core.models import Event
 class Invite(GenericBaseModel):
     user_id = models.UUIDField()
     target_email = models.EmailField()
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    state = models.ForeignKey(State, on_delete=models.CASCADE)
+    invite_event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    invite_state = models.ForeignKey(State, on_delete=models.CASCADE)
