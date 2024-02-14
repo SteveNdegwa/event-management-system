@@ -1,4 +1,4 @@
-from base.models import BaseModel
+from base.models import BaseModel, State
 from django.db import models
 
 
@@ -14,3 +14,7 @@ class CachedUser(BaseModel):
     date_joined = models.DateTimeField(editable=False)
     last_login = models.DateTimeField()
     role = models.CharField(max_length=255)
+    cached_user_state = models.ForeignKey(State, on_delete=models.CASCADE, null=True)
+
+    def __str__(self):
+        return self.username
