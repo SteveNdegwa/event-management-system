@@ -25,6 +25,7 @@ class Event(GenericBaseModel):
 
 class Role(GenericBaseModel):
     role_state = models.ForeignKey(State, on_delete=models.CASCADE)
+    role_event = models.ForeignKey(Event, on_delete=models.CASCADE, null=True)
 
     def __str__(self):
         return self.name
@@ -37,7 +38,7 @@ class Attendee(BaseModel):
     attendee_state = models.ForeignKey(State, on_delete=models.CASCADE)
 
     def __str__(self):
-        return self.uuid
+        return self.event.name
 
 
 class Ticket(BaseModel):

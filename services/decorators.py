@@ -17,7 +17,7 @@ def verify_token(inner_function):
         url = f"{USER_MANAGEMENT_API}/"
         response = requests.post(url, json={"token": token})
         print(response)
-        if response.json().data.code == "200.000":
+        if response.json().data.code == "200":
             return inner_function(request, *args, **kwargs)
         return JsonResponse({"message": "Invalid Token"}, status=403)
     return _wrapped_function

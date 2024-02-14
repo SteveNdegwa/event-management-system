@@ -11,11 +11,12 @@ class EventAdmin(admin.ModelAdmin):
 
 
 class RoleAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description', 'role_state', 'date_created', 'date_modified')
+    list_display = ('uuid', 'name', 'description', 'role_event', 'role_state', 'date_created', 'date_modified')
 
 
 class AttendeeAdmin(admin.ModelAdmin):
-    list_display = ('user_id', 'event', 'role', 'attendee_state',  'date_created', 'date_modified')
+    list_display = ('uuid', 'user_id', 'event', 'role', 'attendee_state',  'date_created', 'date_modified')
+
 
 class TicketAdmin(admin.ModelAdmin):
     list_display = ('ticket_attendee', 'ticket_state', 'date_created', 'date_modified')

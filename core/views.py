@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from base.backend.ServiceLayer import StateService
 from invites.views import invite_to_event
-from .backend.ServiceLayer import EventTypeService, EventService
+from .backend.ServiceLayer import EventTypeService, EventService, AttendeeService, RoleService, TicketService
 from services.request_processor import get_request_data
 from logs.views import TransactionLog
 from notifications.views import create_notification
@@ -202,3 +202,235 @@ def delete_event(request):
 @csrf_exempt
 def invite(request):
     return invite_to_event(request)
+
+
+@csrf_exempt
+def attend_event(request):
+    # initialize transaction
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        event_id = data.get('event_id')
+
+        # start transaction
+        transaction_log.start_transaction(user_id, 'attend_event', data)
+
+        # get the event instance
+        event = EventService().get(uuid=event_id)
+
+        # get event capacity and check if there's remaining slots
+        event_capacity = int(event.capacity)
+        if event_capacity < 2:
+            response = {"message": "Event is full", "code": "200"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=200)
+
+        # get active state instance
+        attendee_state = StateService().get(name="active")
+
+        # get attendee role instance
+        role = RoleService().get(name="attendee")
+
+        # create attendee
+        attendee = AttendeeService().create(user_id=user_id, event=event, role=role, attendee_state=attendee_state)
+
+        # update event capacity
+        EventService().update(event.uuid, capacity=event_capacity - 1)
+
+        # create ticket
+        ticket = create_ticket(user_id, str(attendee.uuid))
+
+        response = {"message": "Event booked successfully", "code": "201", "ticket_id": ticket.uuid}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response, status=201)
+
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def create_ticket(user_id, attendee_id):
+    ticket_transaction_log = TransactionLog()
+    try:
+        ticket_transaction_log.start_transaction(user_id, "create_ticket",
+                                                 {"user_id": user_id, "attendee_id": attendee_id})
+        attendee = AttendeeService().get(uuid=attendee_id)
+        ticket_state = StateService().get(name="active")
+        ticket = TicketService().create(ticket_attendee=attendee, ticket_state=ticket_state)
+        response = {"message": "Ticket created successfully", "code": "201"}
+        ticket_transaction_log.complete_transaction(response, True)
+        return ticket
+    except:
+        response = {"message": "Error creating ticket", "code": "500"}
+        ticket_transaction_log.complete_transaction(response, False)
+
+
+@csrf_exempt
+def create_role(request):
+    # initialize log
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        event_id = data.get('event_id')
+        name = data.get('name')
+        description = data.get('description')
+
+        # start log
+        transaction_log.start_transaction(user_id, "create_role", data)
+
+        # check if user is the event creator
+        event = EventService().get(uuid=event_id)
+
+        if user_id != str(event.creator_id):
+            response = {"message": "You are not authorized to perform this action", "code": "403"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=403)
+
+        role_state = StateService().get(name="active")
+        role = RoleService().create(name=name, description=description, role_event=event, role_state=role_state)
+        print("role id", role.uuid)
+
+        create_notification(user_id, "Role Created",
+                            f"You created a role: {name} - {description} for event: {event.name} - {event.description}")
+
+        response = {"message": "Role created successfully", "code": "201"}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response, status=201)
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def update_role(request):
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        role_id = data.get('role_id')
+        new_name = data.get('name')
+        new_description = data.get('description')
+
+        # start log
+        transaction_log.start_transaction(user_id, "update_role", data)
+
+        # get role instance
+        role = RoleService().get(uuid=role_id)
+        old_name = role.name
+        old_description = role.description
+
+        # check if user is the event creator
+        if user_id != str(role.role_event.creator_id):
+            response = {"message": "You are not authorized to perform this action", "code": "403"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=403)
+
+        RoleService().update(role_id, name=new_name, description=new_description)
+
+        create_notification(user_id, "Role Updated",
+                            f"You updated role: {old_name} - {old_description} to  {new_name} - {new_description}")
+
+        response = {"message": "Role updated successfully", "code": "200"}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response, status=200)
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def delete_role(request):
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        role_id = data.get('role_id')
+
+        # start log
+        transaction_log.start_transaction(user_id, "delete_role", data)
+
+        # get role instance
+        role = RoleService().get(uuid=role_id)
+
+        # check if user is the event creator
+        if user_id != str(role.role_event.creator_id):
+            response = {"message": "You are not authorized to perform this action", "code": "403"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=403)
+
+        deleted_state = StateService().get(name="deleted")
+
+        RoleService().update(role_id, role_state=deleted_state)
+
+        create_notification(user_id, "Role Deleted",
+                            f"You deleted role: {role.name} - {role.description}")
+
+        # get attendees linked to the role and update to default
+        default_role = RoleService().get(name="attendee")
+        linked_attendees = AttendeeService().filter(role=role)
+        for linked_attendee in linked_attendees:
+            AttendeeService().update(linked_attendee.uuid, role=default_role)
+
+        response = {"message": "Role deleted successfully", "code": "200"}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response, status=200)
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def assign_role(request):
+    # initialize log
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        attendee_id = data.get('attendee_id')
+        role_id = data.get('role_id')
+
+        # start transaction log
+        transaction_log.start_transaction(user_id, "assign_role", data)
+
+        # get role instance
+        role = RoleService().get(uuid=role_id)
+        # check if user is the event creator
+        creator_id = str(role.role_event.creator_id)
+        if user_id != creator_id:
+            response = {"message": "You are not authorized to perform this action", "code": "403"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=403)
+
+        # update attendee role
+        AttendeeService().update(attendee_id, role=role)
+
+        # get attendee instance
+        attendee = AttendeeService().get(uuid=attendee_id)
+
+        # send notifications
+        create_notification(user_id, "Role Assigned",
+                            f"You assigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} to attendee: {attendee_id}")
+
+        create_notification(attendee.user_id, "Role Assigned",
+                            f"You were assigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description}")
+
+        response = {"message": "Role assigned successfully", "code": "200"}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response, status=200)
+
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)

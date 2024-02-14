@@ -3,6 +3,7 @@ from base.backend.ServiceLayer import StateService
 from core.backend.ServiceLayer import EventService
 from invites.backend.ServiceLayer import InviteService
 from logs.views import TransactionLog
+from services.email_service import send_invitation_email
 from services.request_processor import get_request_data
 
 
@@ -32,6 +33,7 @@ def invite_to_event(request):
         invite = InviteService().create(name=name, description=description, user_id=user_id, target_email=target_email, invite_event=event, invite_state=ongoing_state)
 
         # send invite
+        send_invitation_email(user_id, target_email, name, description)
 
         # update state of invite
         completed_state = StateService().get(name='ongoing')
@@ -48,3 +50,4 @@ def invite_to_event(request):
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
         return JsonResponse(response, status=500)
+
