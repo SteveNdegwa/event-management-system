@@ -7,4 +7,5 @@ urlpatterns = [
     path("get/id/", views.get_event_by_id),
     path("get/", views.get_events),
     path("get/search/", views.search_events),
+    path("invite/", views.invite),
 ]
