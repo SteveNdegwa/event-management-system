@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'core',
     'logs',
     'notifications',
+    'invites',
 ]
 
 MIDDLEWARE = [
