@@ -10,3 +10,6 @@ class Invite(GenericBaseModel):
     target_email = models.EmailField()
     invite_event = models.ForeignKey(Event, on_delete=models.CASCADE)
     invite_state = models.ForeignKey(State, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.name} - {self.description}"
