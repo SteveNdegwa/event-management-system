@@ -20,7 +20,6 @@ def login(request):
     url = f"{USER_MANAGEMENT_API}/login/"
     response = requests.post(url, json=data)
     user_data = response.json()['data']
-    print(user_data)
     user_id = user_data.get('id')
 
     # check if cached data exists
@@ -74,6 +73,39 @@ def logout(request):
 def register(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/register/"
+    response = requests.post(url, json=data)
+    print(response)
+    return JsonResponse(response.json())
+
+
+@csrf_exempt
+def confirm_email(request):
+    data = get_request_data(request)
+    url = f"{USER_MANAGEMENT_API}/confirmEmail/"
+    response = requests.post(url, json=data)
+    return JsonResponse(response.json())
+
+
+@csrf_exempt
+def forgot_password(request):
+    data = get_request_data(request)
+    url = f"{USER_MANAGEMENT_API}/forgot/"
+    response = requests.post(url, json=data)
+    return JsonResponse(response.json())
+
+
+@csrf_exempt
+def reset_password(request):
+    data = get_request_data(request)
+    url = f"{USER_MANAGEMENT_API}/reset/"
+    response = requests.post(url, json=data)
+    return JsonResponse(response.json())
+
+
+@csrf_exempt
+def change_credentials(request):
+    data = get_request_data(request)
+    url = f"{USER_MANAGEMENT_API}/changecredentials/"
     response = requests.post(url, json=data)
     return JsonResponse(response.json())
 
