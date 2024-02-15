@@ -3,7 +3,7 @@ from django.db import models
 
 
 class CachedUser(BaseModel):
-    user_id = models.CharField(max_length=255)
+    user_id = models.UUIDField()
     username = models.CharField(max_length=255)
     email = models.EmailField()
     first_name = models.CharField(max_length=255)
