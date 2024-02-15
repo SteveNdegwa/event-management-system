@@ -1,5 +1,6 @@
 from base.backend.ServiceLayer import StateService
 from services.email_service import send_notification_email
+from user_management.backend.ServiceLayer import CachedUserService
 from .backend.ServiceLayer import NotificationService
 
 
@@ -13,8 +14,9 @@ def create_notification(user_id, name, description):
             notification_state=state,
         )
 
-        # send notification and if successful
-        send_notification_email(user_id, "stevencallistus19@gmail.com", name, description)
+        # send notification
+        email = CachedUserService().get(user_id=user_id).email
+        send_notification_email(user_id, email, name, description)
 
         new_state = StateService().get(name="completed")
         NotificationService().update(notification_to_save.uuid, notification_state=new_state)
