@@ -19,6 +19,6 @@ def verify_token(inner_function):
         print(response)
         if response.json().data.code == "200":
             return inner_function(request, *args, **kwargs)
-        return JsonResponse({"message": "Invalid Token"}, status=403)
+        return JsonResponse({"message": "Invalid Token", "code": "401"}, status=401)
     return _wrapped_function
 
