@@ -22,6 +22,10 @@ def login(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/login/"
     response = requests.post(url, json=data)
+
+    if response.status_code != 200:
+        return JsonResponse(response.json())
+
     user_data = response.json()['data']
     user_id = user_data.get('uuid')
 
@@ -62,7 +66,7 @@ def login(request):
         )
 
     json_response = JsonResponse(response.json())
-    json_response.set_cookie('token', user_data.get('token'), httponly=True)
+    # json_response.set_cookie('token', user_data.get('token'), httponly=True)
     json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True)
     json_response.set_cookie('role', user_data.get('role'), httponly=True)
 
@@ -71,10 +75,9 @@ def login(request):
 
 @csrf_exempt
 def logout(request):
-    data = get_request_data(request)
-    url = f"{USER_MANAGEMENT_API}/logout/"
-    response = requests.post(url, json=data)
-    return JsonResponse(response.json())
+    json_response = JsonResponse({"message": "logout successful"}, status=200)
+    json_response.delete_cookie('token')
+    return json_response
 
 
 @csrf_exempt
@@ -82,7 +85,6 @@ def register(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/register/"
     response = requests.post(url, json=data)
-    print(response)
     return JsonResponse(response.json())
 
 
