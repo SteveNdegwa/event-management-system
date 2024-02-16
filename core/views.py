@@ -55,8 +55,8 @@ def search_events(request):
         data = get_request_data(request)
         search = data.get('search')
 
-        event_type = EventTypeService().get(name=search)
-        event_state = StateService().get(name=search)
+        event_type = EventTypeService().filter(name=search)
+        event_state = StateService().filter(name=search)
 
         events = EventService().filter(name=search) | EventService().filter(description=search) | EventService().filter(
             creator_id=search) | EventService().filter(start=search) | EventService().filter(
@@ -157,19 +157,21 @@ def update_event(request):
         return JsonResponse(response, status=500)
 
 
+@csrf_exempt
 def delete_event(request):
     transaction_log = TransactionLog()
     try:
         data = get_request_data(request)
         user_id = data.get('user_id')
         event_id = data.get('event_id')
+        print(data)
 
         # start transaction
         transaction_log.start_transaction(user_id, 'delete_event', data)
 
         # get event to be deleted
-        event = EventService().get(event_id=event_id)
-
+        event = EventService().get(uuid=event_id)
+        print(event)
         # check if user is event creator
         creator_id = event.creator_id
         if str(user_id) != str(creator_id):
