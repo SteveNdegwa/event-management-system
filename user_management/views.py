@@ -3,6 +3,8 @@ from django.http import JsonResponse
 import requests
 from django.views.decorators.csrf import csrf_exempt
 
+from base.backend.ServiceLayer import StateService
+from services.decorators import verify_token
 from services.request_processor import get_request_data
 from .backend.ServiceLayer import CachedUserService
 
@@ -15,16 +17,17 @@ USER_MANAGEMENT_API = os.getenv('USER_MANAGEMENT_API')
 
 
 @csrf_exempt
+@verify_token
 def login(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/login/"
     response = requests.post(url, json=data)
     user_data = response.json()['data']
-    user_id = user_data.get('id')
+    user_id = user_data.get('uuid')
 
     # check if cached data exists
-    cached_data = CachedUserService().filter(user_id=user_id)
-    if cached_data.exists():
+    cached_data = CachedUserService().filter(user_id=user_id).first()
+    if cached_data:
         # update cached data
         CachedUserService().update(
             cached_data.uuid,
@@ -37,12 +40,12 @@ def login(request):
             is_staff=user_data.get('is_staff'),
             date_joined=user_data.get('date_joined'),
             last_login=user_data.get('last_login'),
-            # role=user_data.get('role'),
-            role="default",
+            role=user_data.get('role'),
         )
 
     # create cache data
     else:
+        state = StateService().get(name="active")
         CachedUserService().create(
             user_id=user_id,
             username=user_data.get('username'),
@@ -54,11 +57,16 @@ def login(request):
             is_staff=user_data.get('is_staff'),
             date_joined=user_data.get('date_joined'),
             last_login=user_data.get('last_login'),
-            # role=user_data.get('role'),
-            role="default",
+            role=user_data.get('role'),
+            cached_user_state=state,
         )
 
-    return JsonResponse(response.json())
+    json_response = JsonResponse(response.json())
+    json_response.set_cookie('token', user_data.get('token'), httponly=True)
+    json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True)
+    json_response.set_cookie('role', user_data.get('role'), httponly=True)
+
+    return json_response
 
 
 @csrf_exempt

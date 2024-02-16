@@ -11,9 +11,9 @@ class CachedUser(BaseModel):
     is_superuser = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
-    date_joined = models.DateTimeField(editable=False)
-    last_login = models.DateTimeField()
-    role = models.CharField(max_length=255)
+    date_joined = models.DateTimeField()
+    last_login = models.DateTimeField(null=True)
+    role = models.TextField()
     cached_user_state = models.ForeignKey(State, on_delete=models.CASCADE, null=True)
 
     def __str__(self):

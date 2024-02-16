@@ -13,12 +13,12 @@ def verify_token(inner_function):
     def _wrapped_function(request, *args, **kwargs):
         print("verifying token")
         token = request.COOKIES.get('token')
-        print(token)
-        url = f"{USER_MANAGEMENT_API}/"
+        url = f"{USER_MANAGEMENT_API}/validatetoken/"
         response = requests.post(url, json={"token": token})
         print(response)
-        if response.json().data.code == "200":
+        if response.status_code == "200":
+            print("new token", response.json())
             return inner_function(request, *args, **kwargs)
         return JsonResponse({"message": "Invalid Token", "code": "401"}, status=401)
     return _wrapped_function
-
+1
