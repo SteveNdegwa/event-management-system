@@ -17,7 +17,6 @@ USER_MANAGEMENT_API = os.getenv('USER_MANAGEMENT_API')
 
 
 @csrf_exempt
-@verify_token
 def login(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/login/"
@@ -82,9 +81,13 @@ def logout(request):
 
 @csrf_exempt
 def register(request):
+    print(request)
+    print("hit")
     data = get_request_data(request)
+    print(data)
     url = f"{USER_MANAGEMENT_API}/register/"
     response = requests.post(url, json=data)
+    print(response)
     return JsonResponse(response.json())
 
 

@@ -24,6 +24,7 @@ def events_to_list(events):
         data['event_type'] = item.event_type.name
         data['event_state'] = item.event_state.name
         event_list.append(data)
+    print(event_list)
     return event_list
 
 
@@ -55,14 +56,10 @@ def search_events(request):
         data = get_request_data(request)
         search = data.get('search')
 
-        event_type = EventTypeService().filter(name=search)
-        event_state = StateService().filter(name=search)
-
-        events = EventService().filter(name=search) | EventService().filter(description=search) | EventService().filter(
-            creator_id=search) | EventService().filter(start=search) | EventService().filter(
-            end=search) | EventService().filter(venue=search) | EventService().filter(
-            price=search) | EventService().filter(capacity=search) | EventService().filter(
-            event_state=event_state) | EventService().filter(event_type=event_type)
+        events = EventService().filter(name__contains=search) | EventService().filter(description__contains=search) | EventService().filter(
+            creator_id__contains=search) | EventService().filter(start__contains=search) | EventService().filter(
+            end__contains=search) | EventService().filter(venue__contains=search) | EventService().filter(
+            price__contains=search) | EventService().filter(capacity__contains=search)
 
         event_list = events_to_list(events)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
