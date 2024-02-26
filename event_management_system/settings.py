@@ -30,7 +30,9 @@ SECRET_KEY = 'django-insecure-bq!^&atl17@zi#&ka%=54^iy7i*qa+7nib+u2-r&w*+af6smv9
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    '*'
+]
 
 
 # Application definition
@@ -147,6 +149,9 @@ EMAIL_USE_SSL = True
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL')
 
 
-CORS_ALLOWED_ORIGINS = [
+CORS_ORIGIN_ALLOW_ALL = True
+CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SAMESITE = 'None'
 
-]
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000/']

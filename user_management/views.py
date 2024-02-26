@@ -17,7 +17,6 @@ USER_MANAGEMENT_API = os.getenv('USER_MANAGEMENT_API')
 
 
 @csrf_exempt
-@verify_token
 def login(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/login/"
@@ -66,8 +65,8 @@ def login(request):
         )
 
     json_response = JsonResponse(response.json())
-    # json_response.set_cookie('token', user_data.get('token'), httponly=True)
-    json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True)
+    json_response.set_cookie('token', user_data.get('token'), httponly=True)
+    json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True, samesite='Lax')
     json_response.set_cookie('role', user_data.get('role'), httponly=True)
 
     return json_response

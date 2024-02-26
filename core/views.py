@@ -13,6 +13,7 @@ def events_to_list(events):
     data = {}
     event_list = list()
     for item in events:
+        data['uuid'] = item.uuid
         data['name'] = item.name
         data['description'] = item.description
         data['creator_id'] = item.creator_id
@@ -24,13 +25,15 @@ def events_to_list(events):
         data['event_type'] = item.event_type.name
         data['event_state'] = item.event_state.name
         event_list.append(data)
+        data = {}
     return event_list
 
 
 @csrf_exempt
 def get_events(request):
     try:
-        events = EventService().all()
+        active_state = StateService().get(name='active')
+        events = EventService().filter(event_state=active_state)
         event_list = events_to_list(events)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
     except:
@@ -42,7 +45,8 @@ def get_event_by_id(request):
     try:
         data = get_request_data(request)
         event_id = data.get('event_id')
-        event = EventService().filter(uuid=event_id)
+        active_state = StateService().get(name='active')
+        event = EventService().filter(uuid=event_id, event_state=active_state)
         event_list = events_to_list(event)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
     except:
@@ -54,15 +58,12 @@ def search_events(request):
     try:
         data = get_request_data(request)
         search = data.get('search')
+        active_state = StateService().get(name='active')
 
-        event_type = EventTypeService().filter(name=search)
-        event_state = StateService().filter(name=search)
-
-        events = EventService().filter(name=search) | EventService().filter(description=search) | EventService().filter(
-            creator_id=search) | EventService().filter(start=search) | EventService().filter(
-            end=search) | EventService().filter(venue=search) | EventService().filter(
-            price=search) | EventService().filter(capacity=search) | EventService().filter(
-            event_state=event_state) | EventService().filter(event_type=event_type)
+        events = EventService().filter(name__contains=search, event_state=active_state) | EventService().filter(description__contains=search, event_state=active_state) | EventService().filter(
+            creator_id__contains=search, event_state=active_state) | EventService().filter(start__contains=search, event_state=active_state) | EventService().filter(
+            end__contains=search, event_state=active_state) | EventService().filter(venue__contains=search, event_state=active_state) | EventService().filter(
+            price__contains=search, event_state=active_state) | EventService().filter(capacity__contains=search, event_state=active_state)
 
         event_list = events_to_list(events)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
@@ -95,6 +96,12 @@ def create_event(request):
             event_state=event_state,
         )
         print(event.uuid)
+
+        # create default role
+        role_state = StateService().get(name="active")
+        role = RoleService().create(name="attendee", description="attendee", role_event=event, role_state=role_state)
+
+        # response
         response = {"message": "Event created successfully", "code": "201"}
         transaction_log.complete_transaction(response, True)
 
@@ -112,11 +119,9 @@ def create_event(request):
 def update_event(request):
     transaction_log = TransactionLog()
     try:
-        # user_id = request.COOKIES.get('user_id')
         data = get_request_data(request)
         event_id = data.get('event_id')
         user_id = data.get('user_id')
-
         event = EventService().get(uuid=event_id)
 
         transaction_log.start_transaction(user_id, 'update_event', data)
@@ -128,7 +133,6 @@ def update_event(request):
 
         event_type = EventTypeService().get(name=data.get('event_type'))
         state = StateService().get(name='active')
-
         EventService().update(
             event_id,
             name=data.get('name'),
@@ -171,7 +175,7 @@ def delete_event(request):
 
         # get event to be deleted
         event = EventService().get(uuid=event_id)
-        print(event)
+
         # check if user is event creator
         creator_id = event.creator_id
         if str(user_id) != str(creator_id):
@@ -252,6 +256,27 @@ def attend_event(request):
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
         return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def get_attendees(request):
+    try:
+        data = get_request_data(request)
+        event_id = data.get('event_id')
+        active_state = StateService().get(name='active')
+        event = EventService().get(uuid=event_id)
+        attendees = AttendeeService().filter(event=event, attendee_state=active_state)
+        data = {}
+        attendee_list = list()
+        for item in attendees:
+            data['uuid'] = item.uuid
+            data['username'] = item.user.username
+            data['role'] = item.role.name
+            attendee_list.append(data)
+            data = {}
+        return JsonResponse({"attendees": attendee_list, "code": "200"}, status=200)
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
 
 
 @csrf_exempt
@@ -377,7 +402,7 @@ def delete_role(request):
                             f"You deleted role: {role.name} - {role.description}")
 
         # get attendees linked to the role and update to default
-        default_role = RoleService().get(name="attendee")
+        default_role = RoleService().get(name="attendee", role_event=role.role_event)
         linked_attendees = AttendeeService().filter(role=role)
         for linked_attendee in linked_attendees:
             AttendeeService().update(linked_attendee.uuid, role=default_role)
@@ -436,3 +461,92 @@ def assign_role(request):
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
         return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def unassign_role(request):
+    # initialize log
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        attendee_id = data.get('attendee_id')
+
+        # start transaction log
+        transaction_log.start_transaction(user_id, "unassign_role", data)
+
+        # get role instance
+        attendee = AttendeeService().get(uuid=attendee_id)
+        role = RoleService().get(name="attendee", role_event=attendee.event)
+
+        # check if user is the event creator
+        creator_id = str(role.role_event.creator_id)
+        if user_id != creator_id:
+            response = {"message": "You are not authorized to perform this action", "code": "403"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response, status=403)
+
+        # update attendee role
+        AttendeeService().update(attendee_id, role=role)
+
+        # get attendee instance
+        attendee = AttendeeService().get(uuid=attendee_id)
+
+        # send notifications
+        create_notification(user_id, "Role unassigned",
+                            f"You unassigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} to attendee: {attendee_id}")
+
+        create_notification(attendee.user_id, "Role unassigned",
+                            f"Your role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} was unassigned")
+
+        response = {"message": "Role unassigned successfully", "code": "200"}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response, status=200)
+
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response, status=500)
+
+
+@csrf_exempt
+def get_role_by_id(request):
+    try:
+        data = get_request_data(request)
+        role_id = data.get('role_id')
+        roles = RoleService().filter(uuid=role_id)
+        data = {}
+        role_list = list()
+        for item in roles:
+            data['uuid'] = item.uuid
+            data['name'] = item.name
+            data['description'] = item.description
+            role_list.append(data)
+            data = {}
+        return JsonResponse({"roles": role_list, "code": "200"}, status=200)
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+
+
+@csrf_exempt
+def get_roles(request):
+    try:
+        data = get_request_data(request)
+        event_id = data.get('event_id')
+        active_state = StateService().get(name='active')
+        event = EventService().get(uuid=event_id)
+        roles = RoleService().filter(role_event=event, role_state=active_state)
+        data = {}
+        role_list = list()
+        for item in roles:
+            data['uuid'] = item.uuid
+            data['name'] = item.name
+            data['description'] = item.description
+            role_list.append(data)
+            data = {}
+        return JsonResponse({"roles": role_list, "code": "200"}, status=200)
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+
+
