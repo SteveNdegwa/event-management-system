@@ -15,7 +15,7 @@ class RoleAdmin(admin.ModelAdmin):
 
 
 class AttendeeAdmin(admin.ModelAdmin):
-    list_display = ('uuid', 'user_id', 'event', 'role', 'attendee_state',  'date_created', 'date_modified')
+    list_display = ('uuid', 'user', 'event', 'role', 'attendee_state',  'date_created', 'date_modified')
 
 
 class TicketAdmin(admin.ModelAdmin):

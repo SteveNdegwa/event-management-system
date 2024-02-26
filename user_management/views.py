@@ -65,8 +65,8 @@ def login(request):
         )
 
     json_response = JsonResponse(response.json())
-    # json_response.set_cookie('token', user_data.get('token'), httponly=True)
-    json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True)
+    json_response.set_cookie('token', user_data.get('token'), httponly=True)
+    json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True, samesite='Lax')
     json_response.set_cookie('role', user_data.get('role'), httponly=True)
 
     return json_response
@@ -81,13 +81,9 @@ def logout(request):
 
 @csrf_exempt
 def register(request):
-    print(request)
-    print("hit")
     data = get_request_data(request)
-    print(data)
     url = f"{USER_MANAGEMENT_API}/register/"
     response = requests.post(url, json=data)
-    print(response)
     return JsonResponse(response.json())
 
 

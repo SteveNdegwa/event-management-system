@@ -1,4 +1,5 @@
 from base.models import BaseModel, GenericBaseModel, State
+from user_management.models import CachedUser
 from django.db import models
 
 
@@ -32,7 +33,7 @@ class Role(GenericBaseModel):
 
 
 class Attendee(BaseModel):
-    user_id = models.UUIDField()
+    user = models.ForeignKey(CachedUser, on_delete=models.CASCADE, null=True)
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
     attendee_state = models.ForeignKey(State, on_delete=models.CASCADE)
