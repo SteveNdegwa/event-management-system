@@ -22,6 +22,7 @@ def events_to_list(events):
         data['venue'] = item.venue
         data['price'] = item.price
         data['capacity'] = item.capacity
+        data['image'] = item.image
         data['event_type'] = item.event_type.name
         data['event_state'] = item.event_state.name
         event_list.append(data)
@@ -92,6 +93,7 @@ def create_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
+            image=data.get('image'),
             event_type=event_type,
             event_state=event_state,
         )
@@ -142,6 +144,7 @@ def update_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
+            image=data.get('image'),
             event_type=event_type,
             event_state=state,
         )
