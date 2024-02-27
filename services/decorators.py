@@ -4,6 +4,8 @@ import requests
 import os
 from dotenv import load_dotenv
 
+from services.request_processor import get_request_data
+
 load_dotenv()
 USER_MANAGEMENT_API = os.getenv('USER_MANAGEMENT_API')
 
@@ -11,13 +13,15 @@ USER_MANAGEMENT_API = os.getenv('USER_MANAGEMENT_API')
 def verify_token(inner_function):
     @wraps(inner_function)
     def _wrapped_function(request, *args, **kwargs):
-        token = request.COOKIES.get('token')
-        url = f"{USER_MANAGEMENT_API}/validatetoken/"
-        response = requests.post(url, json={"token": token})
-        if response.status_code == 200:
-            json_response = inner_function(request, *args, **kwargs)
-            json_response.set_cookie("token", response.json()['token'], httponly=True)
-            return json_response
-        return JsonResponse({"message": "Invalid Token", "code": "401"}, status=401)
+        try:
+            data = get_request_data(request)
+            token = data.get('token')
+            url = f"{USER_MANAGEMENT_API}/validatetoken/"
+            response = requests.post(url, json={"token": token})
+            if response.status_code == 200:
+                return inner_function(request, *args, **kwargs)
+            return JsonResponse({"message": "Please login", "code": "480"}, status=401)
+        except:
+            return JsonResponse({"message": "Error verifying access token. Please try again", "code": "401"}, status=401)
     return _wrapped_function
 
