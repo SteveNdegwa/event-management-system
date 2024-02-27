@@ -20,8 +20,8 @@ def verify_token(inner_function):
             response = requests.post(url, json={"token": token})
             if response.status_code == 200:
                 return inner_function(request, *args, **kwargs)
-            return JsonResponse({"message": "Please login", "code": "480"}, status=401)
+            return JsonResponse({"message": "Please login", "code": "480"})
         except:
-            return JsonResponse({"message": "Error verifying access token. Please try again", "code": "401"}, status=401)
+            return JsonResponse({"message": "Error verifying access token. Please try again", "code": "480"})
     return _wrapped_function
 

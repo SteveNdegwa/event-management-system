@@ -8,6 +8,7 @@ from .backend.ServiceLayer import EventTypeService, EventService, AttendeeServic
 from services.request_processor import get_request_data
 from logs.views import TransactionLog
 from notifications.views import create_notification
+import datetime
 
 
 @csrf_exempt
@@ -15,6 +16,11 @@ def events_to_list(events):
     data = {}
     event_list = list()
     for item in events:
+        today = datetime.datetime.now()
+        if today.date() > item.end.date():
+            completed_state = StateService().get(name="completed")
+            EventService().update(item.uuid, event_state=completed_state)
+
         data['uuid'] = item.uuid
         data['name'] = item.name
         data['description'] = item.description
@@ -29,6 +35,8 @@ def events_to_list(events):
         data['event_state'] = item.event_state.name
         event_list.append(data)
         data = {}
+
+
     return event_list
 
 
@@ -48,8 +56,8 @@ def get_created_events(request):
     try:
         data = get_request_data(request)
         user_id = data.get('user_id')
-        active_state = StateService().get(name='active')
-        events = EventService().filter(creator_id=user_id, event_state=active_state)
+        deleted_state = StateService().get(name='deleted')
+        events = EventService().filter(creator_id=user_id, event_state__ne=deleted_state)
         event_list = events_to_list(events)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
     except:
@@ -93,8 +101,7 @@ def get_event_by_id(request):
     try:
         data = get_request_data(request)
         event_id = data.get('event_id')
-        active_state = StateService().get(name='active')
-        event = EventService().filter(uuid=event_id, event_state=active_state)
+        event = EventService().filter(uuid=event_id)
         event_list = events_to_list(event)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
     except:
@@ -262,6 +269,16 @@ def delete_event(request):
 
         # delete event
         EventService().update(event_id, event_state=deleted_state)
+
+        # get affected attendees and inactivate them
+        affected_attendees = AttendeeService().filter(event=event)
+        incative_state = StateService().get(name="inactive")
+        for attendee in affected_attendees:
+            AttendeeService().update(attendee.uuid, attendee_state=incative_state)
+            ticket = TicketService().get(ticket_attendee=attendee.uuid)
+            TicketService().update(ticket.uuid, ticket_state=incative_state)
+            create_notification(attendee.user.user_id, name="Event Cancelled",
+                                description=f"Event: '{event.name} - {event.description}' was cancelled. Sorry for any inconveniences caused")
 
         # complete transaction
         response = {"message": "Event deleted successfully", "code": "200"}
