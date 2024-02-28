@@ -57,7 +57,7 @@ def get_created_events(request):
         data = get_request_data(request)
         user_id = data.get('user_id')
         deleted_state = StateService().get(name='deleted')
-        events = EventService().filter(creator_id=user_id, event_state__ne=deleted_state)
+        events = EventService().filter(creator_id=user_id).exclude(event_state=deleted_state)
         event_list = events_to_list(events)
         return JsonResponse({"events": event_list, "code": "200"}, status=200)
     except:
