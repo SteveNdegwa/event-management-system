@@ -8,4 +8,4 @@ def get_request_data(request):
         data = json.loads(request.body)
         return data
     except:
-        return JsonResponse({"message": "Error retrieving request data", "code": "500"}, status=500)
+        return JsonResponse({"message": "Error retrieving request data", "code": "500"})

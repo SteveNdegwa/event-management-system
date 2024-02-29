@@ -10,6 +10,8 @@ urlpatterns = [
     path("get/booked/", views.get_booked_events),
     path("get/created/", views.get_created_events),
     path("get/search/", views.search_events),
+    path("get/upcoming/", views.get_upcoming_events),
+    path("get/ongoing/", views.get_ongoing_events),
     path("invite/", views.invite),
     path("attend/", views.attend_event),
     path("unbook/", views.unbook_event),

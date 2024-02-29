@@ -5,6 +5,7 @@ from invites.backend.ServiceLayer import InviteService
 from logs.views import TransactionLog
 from services.email_service import send_invitation_email
 from services.request_processor import get_request_data
+from email_validator import validate_email, EmailNotValidError
 
 
 def invite_to_event(request):
@@ -18,6 +19,16 @@ def invite_to_event(request):
 
         # initialize transaction log
         transaction_log.start_transaction(user_id, 'invite', data)
+
+        # check if email is valid
+        try:
+            email_info = validate_email(target_email, check_deliverability=True)
+            # email = email_info.normalized
+
+        except EmailNotValidError as e:
+            response = {"message": str(e), "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
 
         # get event instance
         event = EventService().get(uuid=event_id)
@@ -43,10 +54,11 @@ def invite_to_event(request):
         # complete transaction
         transaction_log.complete_transaction(response, True)
 
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
     except:
+        print("here")
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
