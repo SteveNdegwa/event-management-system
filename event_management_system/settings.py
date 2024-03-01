@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 from pathlib import Path
 import os
+
+import cloudinary
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -155,3 +157,10 @@ CORS_ALLOW_CREDENTIALS = True
 # SESSION_COOKIE_SAMESITE = 'None'
 
 CSRF_TRUSTED_ORIGINS = ['http://localhost:3000/']
+
+cloudinary.config(
+    cloud_name="di2a8gjsq",
+    api_key="136889971751499",
+    api_secret="U4gMDql7XPftlD8LHOx5Dp-jeAQ",
+    secure=True,
+)

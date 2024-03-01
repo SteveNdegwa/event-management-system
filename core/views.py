@@ -202,7 +202,7 @@ def create_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
-            image=upload_result['public_id'],
+            image=upload_result['secure_url'],
             event_type=event_type,
             event_state=event_state,
         )
