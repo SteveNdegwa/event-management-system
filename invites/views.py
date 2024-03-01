@@ -57,7 +57,6 @@ def invite_to_event(request):
         return JsonResponse(response)
 
     except:
-        print("here")
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
         return JsonResponse(response)

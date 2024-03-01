@@ -7,7 +7,7 @@ class EventTypeAdmin(admin.ModelAdmin):
 
 
 class EventAdmin(admin.ModelAdmin):
-    list_display = ('name', 'description', 'creator_id', 'start', 'end', 'venue', 'price', 'capacity', 'event_type', 'event_state', 'date_created', 'date_modified')
+    list_display = ('name', 'description', 'creator_id', 'start', 'end', 'venue', 'price', 'capacity', 'image', 'event_type', 'event_state', 'date_created', 'date_modified')
 
 
 class RoleAdmin(admin.ModelAdmin):

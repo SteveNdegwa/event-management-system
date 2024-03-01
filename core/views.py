@@ -1,4 +1,8 @@
 import dateparser
+import uuid
+import cloudinary
+import pybase64
+from cloudinary.uploader import upload
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from base.backend.ServiceLayer import StateService
@@ -12,6 +16,7 @@ from notifications.views import create_notification
 from datetime import datetime
 
 
+# convert event object to a dictionary
 @csrf_exempt
 def events_to_list(events):
     data = {}
@@ -22,21 +27,11 @@ def events_to_list(events):
             completed_state = StateService().get(name="completed")
             EventService().update(item.uuid, event_state=completed_state)
 
-        data['uuid'] = item.uuid
-        data['name'] = item.name
-        data['description'] = item.description
-        data['creator_id'] = item.creator_id
-        data['start'] = item.start
-        data['end'] = item.end
-        data['venue'] = item.venue
-        data['price'] = item.price
-        data['capacity'] = item.capacity
-        data['image'] = item.image
-        data['event_type'] = item.event_type.name
-        data['event_state'] = item.event_state.name
+        data = {'uuid': item.uuid, 'name': item.name, 'description': item.description, 'creator_id': item.creator_id,
+                'start': item.start, 'end': item.end, 'venue': item.venue, 'price': item.price,
+                'capacity': item.capacity, 'image': item.image, 'event_type': item.event_type.name,
+                'event_state': item.event_state.name}
         event_list.append(data)
-        data = {}
-
 
     return event_list
 
@@ -69,11 +64,13 @@ def get_ongoing_events(request):
     try:
         active_state = StateService().get(name='active')
         current_time = datetime.now()
-        events = EventService().filter(event_state=active_state, start__lte=current_time, end__gte=current_time).order_by("start")[:5]
+        events = EventService().filter(event_state=active_state, start__lte=current_time,
+                                       end__gte=current_time).order_by("start")[:5]
         event_list = events_to_list(events)
         return JsonResponse({"events": event_list, "code": "200"})
     except:
         return JsonResponse({"message": "Internal server error", "code": "500"})
+
 
 @csrf_exempt
 def get_created_events(request):
@@ -98,23 +95,14 @@ def get_booked_events(request):
         active_state = StateService().get(name='active')
         attendees = AttendeeService().filter(user=user, attendee_state=active_state)
 
-        data = {}
         event_list = list()
         for item in attendees:
-            data['uuid'] = item.event.uuid
-            data['name'] = item.event.name
-            data['description'] = item.event.description
-            data['creator_id'] = item.event.creator_id
-            data['start'] = item.event.start
-            data['end'] = item.event.end
-            data['venue'] = item.event.venue
-            data['price'] = item.event.price
-            data['capacity'] = item.event.capacity
-            data['image'] = item.event.image
-            data['event_type'] = item.event.event_type.name
-            data['event_state'] = item.event.event_state.name
+            data = {'uuid': item.event.uuid, 'name': item.event.name, 'description': item.event.description,
+                    'creator_id': item.event.creator_id, 'start': item.event.start, 'end': item.event.end,
+                    'venue': item.event.venue, 'price': item.event.price, 'capacity': item.event.capacity,
+                    'image': item.event.image, 'event_type': item.event.event_type.name,
+                    'event_state': item.event.event_state.name}
             event_list.append(data)
-            data = {}
         return JsonResponse({"events": event_list, "code": "200"})
     except:
         return JsonResponse({"message": "Internal server error", "code": "500"})
@@ -183,6 +171,19 @@ def create_event(request):
 
         transaction_log.start_transaction(user_id, 'create_event', data)
 
+        try:
+            decoded_image_data = pybase64.b64decode(data.get('image'))
+            random_filename = uuid.uuid4().hex + "events"
+            upload_result = cloudinary.uploader.upload(
+                file=decoded_image_data,
+                public_id=random_filename,
+                resource_type="image",
+            )
+        except:
+            response = {"message": "Error uploading image", "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
+
         today = datetime.now()
         if end_time < start_time or start_time < today.date():
             response = {"message": "Invalid event timelines", "code": "500"}
@@ -201,11 +202,10 @@ def create_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
-            image=data.get('image'),
+            image=upload_result['secure_url'],
             event_type=event_type,
             event_state=event_state,
         )
-        print(event.uuid)
 
         # create default role
         role_state = StateService().get(name="active")
@@ -730,14 +730,10 @@ def get_role_by_id(request):
         data = get_request_data(request)
         role_id = data.get('role_id')
         roles = RoleService().filter(uuid=role_id)
-        data = {}
         role_list = list()
         for item in roles:
-            data['uuid'] = item.uuid
-            data['name'] = item.name
-            data['description'] = item.description
+            data = {'uuid': item.uuid, 'name': item.name, 'description': item.description}
             role_list.append(data)
-            data = {}
         return JsonResponse({"roles": role_list, "code": "200"})
     except:
         return JsonResponse({"message": "Internal server error", "code": "500"})
@@ -751,14 +747,10 @@ def get_roles(request):
         active_state = StateService().get(name='active')
         event = EventService().get(uuid=event_id)
         roles = RoleService().filter(role_event=event, role_state=active_state)
-        data = {}
         role_list = list()
         for item in roles:
-            data['uuid'] = item.uuid
-            data['name'] = item.name
-            data['description'] = item.description
+            data = {'uuid': item.uuid, 'name': item.name, 'description': item.description}
             role_list.append(data)
-            data = {}
         return JsonResponse({"roles": role_list, "code": "200"})
     except:
         return JsonResponse({"message": "Internal server error", "code": "500"})

@@ -68,11 +68,6 @@ def login(request):
 
 
 @csrf_exempt
-def logout(request):
-    return JsonResponse({"message": "logout successful"})
-
-
-@csrf_exempt
 def register(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/register/"
