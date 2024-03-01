@@ -1,3 +1,8 @@
+import uuid
+
+import cloudinary
+import pybase64
+from cloudinary.uploader import upload
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from base.backend.ServiceLayer import StateService
@@ -148,14 +153,24 @@ def get_event_types(request):
 
 
 @csrf_exempt
-@verify_token
 def create_event(request):
-    transaction_log = TransactionLog()
+    # transaction_log = TransactionLog()
     try:
         data = get_request_data(request)
         user_id = data.get('user_id')
+        image = data.get('selectedFile')
 
-        transaction_log.start_transaction(user_id, 'create_event', data)
+        decoded_image_data = pybase64.b64decode(image)
+        random_filename = uuid.uuid4().hex + "events"
+
+        upload_result = cloudinary.uploader.upload(
+            file=decoded_image_data,
+            public_id=random_filename,
+            resource_type="image",
+        )
+
+        print("Upload successful:", upload_result)
+        # transaction_log.start_transaction(user_id, 'create_event', data)
 
         event_state = StateService().get(name='active')
         event_type = EventTypeService().get(name=data.get('event_type'))
@@ -173,15 +188,13 @@ def create_event(request):
             event_type=event_type,
             event_state=event_state,
         )
-        print(event.uuid)
-
         # create default role
         role_state = StateService().get(name="active")
         role = RoleService().create(name="attendee", description="attendee", role_event=event, role_state=role_state)
 
         # response
         response = {"message": "Event created successfully", "code": "201"}
-        transaction_log.complete_transaction(response, True)
+        # transaction_log.complete_transaction(response, True)
 
         create_notification(user_id, "Event created",
                             f"You created an event: {data.get('name')} - {data.get('description')}")
@@ -189,7 +202,7 @@ def create_event(request):
         return JsonResponse(response, status=201)
     except:
         response = {"message": "Internal server error", "code": "500"}
-        transaction_log.complete_transaction(response, False)
+        # transaction_log.complete_transaction(response, False)
         return JsonResponse(response, status=500)
 
 
