@@ -1,4 +1,8 @@
 import dateparser
+import uuid
+import cloudinary
+import pybase64
+from cloudinary.uploader import upload
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from base.backend.ServiceLayer import StateService
@@ -167,6 +171,19 @@ def create_event(request):
 
         transaction_log.start_transaction(user_id, 'create_event', data)
 
+        try:
+            decoded_image_data = pybase64.b64decode(data.get('image'))
+            random_filename = uuid.uuid4().hex + "events"
+            upload_result = cloudinary.uploader.upload(
+                file=decoded_image_data,
+                public_id=random_filename,
+                resource_type="image",
+            )
+        except:
+            response = {"message": "Error uploading image", "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
+
         today = datetime.now()
         if end_time < start_time or start_time < today.date():
             response = {"message": "Invalid event timelines", "code": "500"}
@@ -185,11 +202,10 @@ def create_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
-            image=data.get('image'),
+            image=upload_result['public_id'],
             event_type=event_type,
             event_state=event_state,
         )
-        print(event.uuid)
 
         # create default role
         role_state = StateService().get(name="active")
