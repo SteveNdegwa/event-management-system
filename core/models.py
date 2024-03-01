@@ -17,7 +17,7 @@ class Event(GenericBaseModel):
     venue = models.TextField()
     price = models.CharField(max_length=10)
     capacity = models.CharField(max_length=10)
-    image = models.CharField(max_length=2000, null=True)
+    image = models.TextField(null=True)
     event_type = models.ForeignKey(EventType, on_delete=models.CASCADE)
     event_state = models.ForeignKey(State, on_delete=models.CASCADE)
 

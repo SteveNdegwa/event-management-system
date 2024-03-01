@@ -5,6 +5,7 @@ from invites.backend.ServiceLayer import InviteService
 from logs.views import TransactionLog
 from services.email_service import send_invitation_email
 from services.request_processor import get_request_data
+from email_validator import validate_email, EmailNotValidError
 
 
 def invite_to_event(request):
@@ -19,35 +20,45 @@ def invite_to_event(request):
         # initialize transaction log
         transaction_log.start_transaction(user_id, 'invite', data)
 
+        # check if email is valid
+        try:
+            email_info = validate_email(target_email, check_deliverability=True)
+            # email = email_info.normalized
+
+        except EmailNotValidError as e:
+            response = {"message": str(e), "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
+
         # get event instance
         event = EventService().get(uuid=event_id)
-        print(event)
 
         # get ongoing state
         ongoing_state = StateService().get(name="ongoing")
-        print(ongoing_state)
 
         # save invite to database
         name = "Event Invite"
         description = f"You are invited to {event.name} - {event.description}"
+
         invite = InviteService().create(name=name, description=description, user_id=user_id, target_email=target_email, invite_event=event, invite_state=ongoing_state)
 
         # send invite
         send_invitation_email(user_id, target_email, name, description)
 
         # update state of invite
-        completed_state = StateService().get(name='ongoing')
+        completed_state = StateService().get(name='completed')
         InviteService().update(invite.uuid, invite_state=completed_state)
 
-        response = {"message": "Invite created successfully", "code": "200"}
+        response = {"message": "Invite sent successfully", "code": "200"}
 
         # complete transaction
         transaction_log.complete_transaction(response, True)
 
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
     except:
+        print("here")
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 

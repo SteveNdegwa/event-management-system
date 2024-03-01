@@ -64,19 +64,12 @@ def login(request):
             cached_user_state=state,
         )
 
-    json_response = JsonResponse(response.json())
-    json_response.set_cookie('token', user_data.get('token'), httponly=True)
-    json_response.set_cookie('user_id', user_data.get('uuid'), httponly=True, samesite='Lax')
-    json_response.set_cookie('role', user_data.get('role'), httponly=True)
-
-    return json_response
+    return JsonResponse(response.json())
 
 
 @csrf_exempt
 def logout(request):
-    json_response = JsonResponse({"message": "logout successful"}, status=200)
-    json_response.delete_cookie('token')
-    return json_response
+    return JsonResponse({"message": "logout successful"})
 
 
 @csrf_exempt
@@ -112,6 +105,7 @@ def reset_password(request):
 
 
 @csrf_exempt
+@verify_token
 def change_credentials(request):
     data = get_request_data(request)
     url = f"{USER_MANAGEMENT_API}/changecredentials/"

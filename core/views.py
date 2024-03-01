@@ -1,11 +1,15 @@
+import dateparser
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from base.backend.ServiceLayer import StateService
 from invites.views import invite_to_event
+from services.decorators import verify_token
+from user_management.backend.ServiceLayer import CachedUserService
 from .backend.ServiceLayer import EventTypeService, EventService, AttendeeService, RoleService, TicketService
 from services.request_processor import get_request_data
 from logs.views import TransactionLog
 from notifications.views import create_notification
+from datetime import datetime
 
 
 @csrf_exempt
@@ -13,6 +17,11 @@ def events_to_list(events):
     data = {}
     event_list = list()
     for item in events:
+        today = datetime.now()
+        if today.date() > item.end.date():
+            completed_state = StateService().get(name="completed")
+            EventService().update(item.uuid, event_state=completed_state)
+
         data['uuid'] = item.uuid
         data['name'] = item.name
         data['description'] = item.description
@@ -27,6 +36,8 @@ def events_to_list(events):
         data['event_state'] = item.event_state.name
         event_list.append(data)
         data = {}
+
+
     return event_list
 
 
@@ -36,9 +47,77 @@ def get_events(request):
         active_state = StateService().get(name='active')
         events = EventService().filter(event_state=active_state)
         event_list = events_to_list(events)
-        return JsonResponse({"events": event_list, "code": "200"}, status=200)
+        return JsonResponse({"events": event_list, "code": "200"})
     except:
-        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+        return JsonResponse({"message": "Internal server error", "code": "500"})
+
+
+@csrf_exempt
+def get_upcoming_events(request):
+    try:
+        active_state = StateService().get(name='active')
+        current_time = datetime.now()
+        events = EventService().filter(event_state=active_state, start__gte=current_time).order_by("start")[:5]
+        event_list = events_to_list(events)
+        return JsonResponse({"events": event_list, "code": "200"})
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"})
+
+
+@csrf_exempt
+def get_ongoing_events(request):
+    try:
+        active_state = StateService().get(name='active')
+        current_time = datetime.now()
+        events = EventService().filter(event_state=active_state, start__lte=current_time, end__gte=current_time).order_by("start")[:5]
+        event_list = events_to_list(events)
+        return JsonResponse({"events": event_list, "code": "200"})
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"})
+
+@csrf_exempt
+def get_created_events(request):
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        deleted_state = StateService().get(name='deleted')
+        events = EventService().filter(creator_id=user_id).exclude(event_state=deleted_state)
+        event_list = events_to_list(events)
+        return JsonResponse({"events": event_list, "code": "200"})
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"})
+
+
+@csrf_exempt
+def get_booked_events(request):
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+
+        user = CachedUserService().get(user_id=user_id)
+        active_state = StateService().get(name='active')
+        attendees = AttendeeService().filter(user=user, attendee_state=active_state)
+
+        data = {}
+        event_list = list()
+        for item in attendees:
+            data['uuid'] = item.event.uuid
+            data['name'] = item.event.name
+            data['description'] = item.event.description
+            data['creator_id'] = item.event.creator_id
+            data['start'] = item.event.start
+            data['end'] = item.event.end
+            data['venue'] = item.event.venue
+            data['price'] = item.event.price
+            data['capacity'] = item.event.capacity
+            data['image'] = item.event.image
+            data['event_type'] = item.event.event_type.name
+            data['event_state'] = item.event.event_state.name
+            event_list.append(data)
+            data = {}
+        return JsonResponse({"events": event_list, "code": "200"})
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"})
 
 
 @csrf_exempt
@@ -46,12 +125,11 @@ def get_event_by_id(request):
     try:
         data = get_request_data(request)
         event_id = data.get('event_id')
-        active_state = StateService().get(name='active')
-        event = EventService().filter(uuid=event_id, event_state=active_state)
+        event = EventService().filter(uuid=event_id)
         event_list = events_to_list(event)
-        return JsonResponse({"events": event_list, "code": "200"}, status=200)
+        return JsonResponse({"events": event_list, "code": "200"})
     except:
-        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+        return JsonResponse({"message": "Internal server error", "code": "500"})
 
 
 @csrf_exempt
@@ -61,25 +139,55 @@ def search_events(request):
         search = data.get('search')
         active_state = StateService().get(name='active')
 
-        events = EventService().filter(name__contains=search, event_state=active_state) | EventService().filter(description__contains=search, event_state=active_state) | EventService().filter(
-            creator_id__contains=search, event_state=active_state) | EventService().filter(start__contains=search, event_state=active_state) | EventService().filter(
-            end__contains=search, event_state=active_state) | EventService().filter(venue__contains=search, event_state=active_state) | EventService().filter(
-            price__contains=search, event_state=active_state) | EventService().filter(capacity__contains=search, event_state=active_state)
+        events = EventService().filter(name__contains=search, event_state=active_state) | EventService().filter(
+            description__contains=search, event_state=active_state) | EventService().filter(
+            creator_id__contains=search, event_state=active_state) | EventService().filter(start__contains=search,
+                                                                                           event_state=active_state) | EventService().filter(
+            end__contains=search, event_state=active_state) | EventService().filter(venue__contains=search,
+                                                                                    event_state=active_state) | EventService().filter(
+            price__contains=search, event_state=active_state) | EventService().filter(capacity__contains=search,
+                                                                                      event_state=active_state)
 
         event_list = events_to_list(events)
-        return JsonResponse({"events": event_list, "code": "200"}, status=200)
+        return JsonResponse({"events": event_list, "code": "200"})
     except:
-        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+        return JsonResponse({"message": "Internal server error", "code": "500"})
 
 
 @csrf_exempt
+def get_event_types(request):
+    try:
+        data = get_request_data(request)
+
+        active_state = StateService().get(name='active')
+        types = EventTypeService().filter(event_type_state=active_state)
+
+        event_types_list = list()
+        for item in types:
+            event_types_list.append(item.name)
+        return JsonResponse({"event_types": event_types_list, "code": "200"})
+
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"})
+
+
+@csrf_exempt
+@verify_token
 def create_event(request):
     transaction_log = TransactionLog()
     try:
         data = get_request_data(request)
         user_id = data.get('user_id')
+        start_time = dateparser.parse(data.get('start')).date()
+        end_time = dateparser.parse(data.get('end')).date()
 
         transaction_log.start_transaction(user_id, 'create_event', data)
+
+        today = datetime.now()
+        if end_time < start_time or start_time < today.date():
+            response = {"message": "Invalid event timelines", "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
 
         event_state = StateService().get(name='active')
         event_type = EventTypeService().get(name=data.get('event_type'))
@@ -110,14 +218,15 @@ def create_event(request):
         create_notification(user_id, "Event created",
                             f"You created an event: {data.get('name')} - {data.get('description')}")
 
-        return JsonResponse(response, status=201)
+        return JsonResponse(response)
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def update_event(request):
     transaction_log = TransactionLog()
     try:
@@ -131,7 +240,7 @@ def update_event(request):
         if user_id != str(event.creator_id):
             response = {"message": "Not authorised to perform this operation", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         event_type = EventTypeService().get(name=data.get('event_type'))
         state = StateService().get(name='active')
@@ -155,23 +264,23 @@ def update_event(request):
         create_notification(user_id, "Event Updated",
                             f"Event: '{data.get('name')}' - '{data.get('description')}' updated successfully")
 
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def delete_event(request):
     transaction_log = TransactionLog()
     try:
         data = get_request_data(request)
         user_id = data.get('user_id')
         event_id = data.get('event_id')
-        print(data)
 
         # start transaction
         transaction_log.start_transaction(user_id, 'delete_event', data)
@@ -184,13 +293,23 @@ def delete_event(request):
         if str(user_id) != str(creator_id):
             response = {"message": "You are not authorized to perform this transaction", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         # get deleted state
         deleted_state = StateService().get(name="deleted")
 
         # delete event
         EventService().update(event_id, event_state=deleted_state)
+
+        # get affected attendees and inactivate them
+        affected_attendees = AttendeeService().filter(event=event)
+        incative_state = StateService().get(name="inactive")
+        for attendee in affected_attendees:
+            AttendeeService().update(attendee.uuid, attendee_state=incative_state)
+            ticket = TicketService().get(ticket_attendee=attendee.uuid)
+            TicketService().update(ticket.uuid, ticket_state=incative_state)
+            create_notification(attendee.user.user_id, name="Event Cancelled",
+                                description=f"Event: '{event.name} - {event.description}' was cancelled. Sorry for any inconveniences caused")
 
         # complete transaction
         response = {"message": "Event deleted successfully", "code": "200"}
@@ -200,20 +319,22 @@ def delete_event(request):
         create_notification(user_id, name="Event deleted",
                             description=f"Event: {event.name} - {event.description} deleted successfully")
 
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def invite(request):
     return invite_to_event(request)
 
 
 @csrf_exempt
+@verify_token
 def attend_event(request):
     # initialize transaction
     transaction_log = TransactionLog()
@@ -233,16 +354,17 @@ def attend_event(request):
         if event_capacity < 2:
             response = {"message": "Event is full", "code": "200"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=200)
+            return JsonResponse(response)
 
         # get active state instance
         attendee_state = StateService().get(name="active")
 
         # get attendee role instance
-        role = RoleService().get(name="attendee")
+        role = RoleService().get(name="attendee", role_event=event)
+        user = CachedUserService().get(user_id=user_id)
 
         # create attendee
-        attendee = AttendeeService().create(user_id=user_id, event=event, role=role, attendee_state=attendee_state)
+        attendee = AttendeeService().create(user=user, event=event, role=role, attendee_state=attendee_state)
 
         # update event capacity
         EventService().update(event.uuid, capacity=event_capacity - 1)
@@ -250,15 +372,73 @@ def attend_event(request):
         # create ticket
         ticket = create_ticket(user_id, str(attendee.uuid))
 
+        # create notification
+        create_notification(user_id, name="Event booked",
+                            description=f"Event: '{event.name}' - '{event.description}' booked successfully. Ticket Id: '{ticket.uuid}'")
+
         response = {"message": "Event booked successfully", "code": "201", "ticket_id": ticket.uuid}
         transaction_log.complete_transaction(response, True)
-        return JsonResponse(response, status=201)
+        return JsonResponse(response)
 
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
+
+
+@csrf_exempt
+@verify_token
+def unbook_event(request):
+    # initialize transaction
+    transaction_log = TransactionLog()
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        event_id = data.get('event_id')
+
+        # start transaction
+        transaction_log.start_transaction(user_id, 'unbook_event', data)
+
+        # get the event instance
+        event = EventService().get(uuid=event_id)
+
+        # get user
+        user = CachedUserService().get(user_id=user_id)
+
+        # get active state instance
+        active_state = StateService().get(name="active")
+
+        # get attendee
+        attendee = AttendeeService().get(user=user, event=event, attendee_state=active_state)
+
+        # get inactive state instance
+        inactive_state = StateService().get(name="inactive")
+
+        # update attendee
+        AttendeeService().update(attendee.uuid, attendee_state=inactive_state)
+
+        # update event capacity
+        event_capacity = int(event.capacity)
+        EventService().update(event.uuid, capacity=event_capacity + 1)
+
+        # update ticket
+        ticket = TicketService().get(ticket_attendee=attendee)
+        TicketService().update(ticket.uuid, ticket_state=inactive_state)
+
+        # create notification
+        create_notification(user_id, name="Event unbooked",
+                            description=f"Event: '{event.name}' - '{event.description}' unbooked successfully")
+
+        response = {"message": "Event unbooked successfully", "code": "200"}
+        transaction_log.complete_transaction(response, True)
+        return JsonResponse(response)
+
+
+    except:
+        response = {"message": "Internal server error", "code": "500"}
+        transaction_log.complete_transaction(response, False)
+        return JsonResponse(response)
 
 
 @csrf_exempt
@@ -277,9 +457,35 @@ def get_attendees(request):
             data['role'] = item.role.name
             attendee_list.append(data)
             data = {}
-        return JsonResponse({"attendees": attendee_list, "code": "200"}, status=200)
+        return JsonResponse({"attendees": attendee_list, "code": "200"})
     except:
-        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+        return JsonResponse({"message": "Internal server error", "code": "500"})
+
+
+@csrf_exempt
+def search_attendee(request):
+    try:
+        data = get_request_data(request)
+        user_id = data.get('user_id')
+        event_id = data.get('event_id')
+        print(data)
+
+        active_state = StateService().get(name='active')
+        event = EventService().get(uuid=event_id)
+        user = CachedUserService().get(user_id=user_id)
+
+        attendees = AttendeeService().filter(user=user, event=event, attendee_state=active_state)
+        data = {}
+        attendee_list = list()
+        for item in attendees:
+            data['uuid'] = item.uuid
+            data['username'] = item.user.username
+            data['role'] = item.role.name
+            attendee_list.append(data)
+            data = {}
+        return JsonResponse({"attendees": attendee_list, "code": "200"})
+    except:
+        return JsonResponse({"message": "Internal server error", "code": "500"})
 
 
 @csrf_exempt
@@ -300,6 +506,7 @@ def create_ticket(user_id, attendee_id):
 
 
 @csrf_exempt
+@verify_token
 def create_role(request):
     # initialize log
     transaction_log = TransactionLog()
@@ -319,7 +526,7 @@ def create_role(request):
         if user_id != str(event.creator_id):
             response = {"message": "You are not authorized to perform this action", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         role_state = StateService().get(name="active")
         role = RoleService().create(name=name, description=description, role_event=event, role_state=role_state)
@@ -330,15 +537,16 @@ def create_role(request):
 
         response = {"message": "Role created successfully", "code": "201"}
         transaction_log.complete_transaction(response, True)
-        return JsonResponse(response, status=201)
+        return JsonResponse(response)
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def update_role(request):
     transaction_log = TransactionLog()
     try:
@@ -360,7 +568,7 @@ def update_role(request):
         if user_id != str(role.role_event.creator_id):
             response = {"message": "You are not authorized to perform this action", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         RoleService().update(role_id, name=new_name, description=new_description)
 
@@ -369,15 +577,16 @@ def update_role(request):
 
         response = {"message": "Role updated successfully", "code": "200"}
         transaction_log.complete_transaction(response, True)
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def delete_role(request):
     transaction_log = TransactionLog()
     try:
@@ -395,7 +604,7 @@ def delete_role(request):
         if user_id != str(role.role_event.creator_id):
             response = {"message": "You are not authorized to perform this action", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         deleted_state = StateService().get(name="deleted")
 
@@ -412,15 +621,16 @@ def delete_role(request):
 
         response = {"message": "Role deleted successfully", "code": "200"}
         transaction_log.complete_transaction(response, True)
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def assign_role(request):
     # initialize log
     transaction_log = TransactionLog()
@@ -440,7 +650,7 @@ def assign_role(request):
         if user_id != creator_id:
             response = {"message": "You are not authorized to perform this action", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         # update attendee role
         AttendeeService().update(attendee_id, role=role)
@@ -457,16 +667,17 @@ def assign_role(request):
 
         response = {"message": "Role assigned successfully", "code": "200"}
         transaction_log.complete_transaction(response, True)
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
+@verify_token
 def unassign_role(request):
     # initialize log
     transaction_log = TransactionLog()
@@ -487,7 +698,7 @@ def unassign_role(request):
         if user_id != creator_id:
             response = {"message": "You are not authorized to perform this action", "code": "403"}
             transaction_log.complete_transaction(response, False)
-            return JsonResponse(response, status=403)
+            return JsonResponse(response)
 
         # update attendee role
         AttendeeService().update(attendee_id, role=role)
@@ -504,13 +715,13 @@ def unassign_role(request):
 
         response = {"message": "Role unassigned successfully", "code": "200"}
         transaction_log.complete_transaction(response, True)
-        return JsonResponse(response, status=200)
+        return JsonResponse(response)
 
 
     except:
         response = {"message": "Internal server error", "code": "500"}
         transaction_log.complete_transaction(response, False)
-        return JsonResponse(response, status=500)
+        return JsonResponse(response)
 
 
 @csrf_exempt
@@ -527,9 +738,9 @@ def get_role_by_id(request):
             data['description'] = item.description
             role_list.append(data)
             data = {}
-        return JsonResponse({"roles": role_list, "code": "200"}, status=200)
+        return JsonResponse({"roles": role_list, "code": "200"})
     except:
-        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
+        return JsonResponse({"message": "Internal server error", "code": "500"})
 
 
 @csrf_exempt
@@ -548,8 +759,6 @@ def get_roles(request):
             data['description'] = item.description
             role_list.append(data)
             data = {}
-        return JsonResponse({"roles": role_list, "code": "200"}, status=200)
+        return JsonResponse({"roles": role_list, "code": "200"})
     except:
-        return JsonResponse({"message": "Internal server error", "code": "500"}, status=500)
-
-
+        return JsonResponse({"message": "Internal server error", "code": "500"})
