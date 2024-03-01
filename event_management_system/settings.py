@@ -159,8 +159,8 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = ['http://localhost:3000/']
 
 cloudinary.config(
-    cloud_name="di2a8gjsq",
-    api_key="136889971751499",
-    api_secret="U4gMDql7XPftlD8LHOx5Dp-jeAQ",
+    cloud_name=os.getenv('CLOUD_NAME'),
+    api_key=os.getenv('API_KEY'),
+    api_secret=os.getenv('API_SECRET'),
     secure=True,
 )
