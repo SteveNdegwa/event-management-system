@@ -1,5 +1,4 @@
 class ServiceLayer(object):
-
     manager = None
 
     def all(self, *args, **kwargs):
@@ -17,13 +16,3 @@ class ServiceLayer(object):
     def update(self, uuid, *args, **kwargs):
         data_to_update = self.filter(uuid=uuid)
         return data_to_update.update(**kwargs)
-
-
-
-
-
-
-
-
-
-
