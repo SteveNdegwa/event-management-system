@@ -154,27 +154,20 @@ def get_event_types(request):
 
 @csrf_exempt
 def create_event(request):
-    # transaction_log = TransactionLog()
+    transaction_log = TransactionLog()
     try:
         data = get_request_data(request)
         user_id = data.get('user_id')
         image = data.get('selectedFile')
-
         decoded_image_data = pybase64.b64decode(image)
         random_filename = uuid.uuid4().hex + "events"
-
         upload_result = cloudinary.uploader.upload(
             file=decoded_image_data,
             public_id=random_filename,
             resource_type="image",
         )
-
-        print("Upload successful:", upload_result)
-        # transaction_log.start_transaction(user_id, 'create_event', data)
-
         event_state = StateService().get(name='active')
         event_type = EventTypeService().get(name=data.get('event_type'))
-
         event = EventService().create(
             name=data.get('name'),
             description=data.get('description'),
@@ -184,25 +177,23 @@ def create_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
-            image=data.get('image'),
+            image=upload_result['public_id'],
             event_type=event_type,
             event_state=event_state,
         )
         # create default role
         role_state = StateService().get(name="active")
         role = RoleService().create(name="attendee", description="attendee", role_event=event, role_state=role_state)
-
         # response
         response = {"message": "Event created successfully", "code": "201"}
-        # transaction_log.complete_transaction(response, True)
+        transaction_log.complete_transaction(response, True)
 
         create_notification(user_id, "Event created",
                             f"You created an event: {data.get('name')} - {data.get('description')}")
-
         return JsonResponse(response, status=201)
     except:
         response = {"message": "Internal server error", "code": "500"}
-        # transaction_log.complete_transaction(response, False)
+        transaction_log.complete_transaction(response, False)
         return JsonResponse(response, status=500)
 
 
