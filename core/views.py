@@ -683,7 +683,7 @@ def assign_role(request):
 
         # send notifications
         create_notification(user_id, "Role Assigned",
-                            f"You assigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} to attendee: {attendee_id}")
+                            f"You assigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} to attendee: {attendee.user.username}")
 
         create_notification(attendee.user_id, "Role Assigned",
                             f"You were assigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description}")
@@ -731,7 +731,7 @@ def unassign_role(request):
 
         # send notifications
         create_notification(user_id, "Role unassigned",
-                            f"You unassigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} to attendee: {attendee_id}")
+                            f"You unassigned a role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} to attendee: {attendee.user.username}")
 
         create_notification(attendee.user_id, "Role unassigned",
                             f"Your role: {role.name} - {role.description} for event: {role.role_event.name} - {role.role_event.description} was unassigned")
