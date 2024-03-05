@@ -233,9 +233,32 @@ def update_event(request):
         data = get_request_data(request)
         event_id = data.get('event_id')
         user_id = data.get('user_id')
+        start_time = dateparser.parse(data.get('start')).date()
+        end_time = dateparser.parse(data.get('end')).date()
+
         event = EventService().get(uuid=event_id)
 
         transaction_log.start_transaction(user_id, 'update_event', data)
+
+
+        try:
+            decoded_image_data = pybase64.b64decode(data.get('image'))
+            random_filename = uuid.uuid4().hex + "events"
+            upload_result = cloudinary.uploader.upload(
+                file=decoded_image_data,
+                public_id=random_filename,
+                resource_type="image",
+            )
+        except:
+            response = {"message": "Error uploading image", "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
+
+        today = datetime.now()
+        if end_time < start_time or start_time < today.date():
+            response = {"message": "Invalid event timelines", "code": "500"}
+            transaction_log.complete_transaction(response, False)
+            return JsonResponse(response)
 
         if user_id != str(event.creator_id):
             response = {"message": "Not authorised to perform this operation", "code": "403"}
@@ -253,7 +276,7 @@ def update_event(request):
             venue=data.get('venue'),
             capacity=data.get('capacity'),
             price=data.get('price'),
-            image=data.get('image'),
+            image=upload_result['secure_url'],
             event_type=event_type,
             event_state=state,
         )
